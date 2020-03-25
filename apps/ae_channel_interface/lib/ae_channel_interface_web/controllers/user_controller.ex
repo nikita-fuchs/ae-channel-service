@@ -17,11 +17,22 @@ defmodule AeChannelInterfaceWeb.ConnectController do
     # {:ok, backend_runner_pid} = BackendServiceManager.start_channel({"bogus", :some_name})
     reestablish_port = String.to_integer(port)
     channel_config = SessionHolderHelper.custom_config(%{}, %{})
-    BackendServiceManager.start_channel({:responder, channel_config, {channel_id, reestablish_port}, fn -> {client_account, "not for you to have"} end})
-    json conn, %{account: public_key(), client_account: client_account, channel_id: channel_id, api_endpoint: "reestablish", client: params}
+
+    BackendServiceManager.start_channel(
+      {:responder, channel_config, {channel_id, reestablish_port},
+       fn -> {client_account, "not for you to have"} end}
+    )
+
+    json(conn, %{
+      account: public_key(),
+      client_account: client_account,
+      channel_id: channel_id,
+      api_endpoint: "reestablish",
+      client: params
+    })
   end
 
-  #TODO endpoint which allows custom configuration
+  # TODO endpoint which allows custom configuration
 
   # http://127.0.0.1:4000/connect/new?client_account=ak_SVQ9RvinB2E8pio2kxtZqhRDwHEsmDAdQCQUhQHki5QyPxtMh&port=1610
   # this is a brand new connection
@@ -29,9 +40,24 @@ defmodule AeChannelInterfaceWeb.ConnectController do
     open_port = String.to_integer(port)
     channel_config = SessionHolderHelper.custom_config(%{}, %{port: open_port})
     basic_params = channel_config.(client_account, public_key())
-    custom_params = channel_config.(client_account, public_key()).custom_param_fun.(:initiator, SessionHolderHelper.ae_url())
-    BackendServiceManager.start_channel({:responder, channel_config, {"", 0}, fn -> {client_account, "not for you to have"} end})
-    json conn, %{account: public_key(), client_account: client_account, api_endpoint: "connect", client: params,  expected_initiator_configuration: %{basic: Map.from_struct(basic_params.basic_configuration), custom: custom_params}}
+
+    custom_params =
+      channel_config.(client_account, public_key()).custom_param_fun.(:initiator, SessionHolderHelper.ae_url())
+
+    BackendServiceManager.start_channel(
+      {:responder, channel_config, {"", 0}, fn -> {client_account, "not for you to have"} end}
+    )
+
+    json(conn, %{
+      account: public_key(),
+      client_account: client_account,
+      api_endpoint: "connect",
+      client: params,
+      expected_initiator_configuration: %{
+        basic: Map.from_struct(basic_params.basic_configuration),
+        custom: custom_params
+      }
+    })
   end
 
   # Maybe phoenix error message is prettier :)

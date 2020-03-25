@@ -31,8 +31,16 @@ defmodule AeChannelInterfaceWeb.SocketConnectorChannel do
   # also covers reestablish
   def handle_in("connect/reestablish", payload, socket) do
     config = SessionHolderHelper.custom_config(%{}, %{port: payload["port"]})
+
     {:ok, pid_session_holder} =
-      SessionHolderHelper.start_session_holder(socket.assigns.role, config, {payload["channel_id"], payload["port"]}, fn -> keypair_initiator() end, fn -> keypair_responder() end, SessionHolderHelper.connection_callback(self(), "yellow"))
+      SessionHolderHelper.start_session_holder(
+        socket.assigns.role,
+        config,
+        {payload["channel_id"], payload["port"]},
+        fn -> keypair_initiator() end,
+        fn -> keypair_responder() end,
+        SessionHolderHelper.connection_callback(self(), "yellow")
+      )
 
     {:noreply, assign(socket, :pid_session_holder, pid_session_holder)}
   end
@@ -72,7 +80,7 @@ defmodule AeChannelInterfaceWeb.SocketConnectorChannel do
   end
 
   def handle_cast({:connection_update, {status, _reason} = update}, socket) do
-    Logger.info("Connection update, #{inspect update}")
+    Logger.info("Connection update, #{inspect(update)}")
     push(socket, "log_event", %{message: inspect(update), name: "bot"})
     push(socket, Atom.to_string(status), %{})
     {:noreply, socket}

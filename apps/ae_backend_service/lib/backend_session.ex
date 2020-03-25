@@ -6,8 +6,8 @@ defmodule BackendSession do
   Contexts are also responsible for managing your data, regardless
   if it comes from the database, an external API or others.
   """
-  use GenServer;
-  require Logger;
+  use GenServer
+  require Logger
 
   defmacro keypair_initiator, do: Application.get_env(:ae_socket_connector, :accounts)[:initiator]
   defmacro keypair_responder, do: Application.get_env(:ae_socket_connector, :accounts)[:responder]
@@ -16,27 +16,38 @@ defmodule BackendSession do
 
   defmacro network_id, do: Application.get_env(:ae_socket_connector, :node)[:network_id]
 
-
-
   defstruct pid_session_holder: nil,
             pid_backend_manager: nil
 
-  #Client
+  # Client
 
   def start_link({params, pid_manager}) do
     GenServer.start_link(__MODULE__, {params, pid_manager})
   end
 
-  #Server
-  def init({{role, channel_config, {_channel_id, _reestablish_port} = reestablish, initiator_keypair} = params, pid_manager}) do
-    Logger.info("Starting backend session #{inspect params} pid is #{inspect self()}")
-    {:ok, pid} = SessionHolderHelper.start_session_holder(role, channel_config, reestablish, initiator_keypair, fn -> keypair_responder() end, SessionHolderHelper.connection_callback(self(), "yellow"))
+  # Server
+  def init(
+        {{role, channel_config, {_channel_id, _reestablish_port} = reestablish, initiator_keypair} = params,
+         pid_manager}
+      ) do
+    Logger.info("Starting backend session #{inspect(params)} pid is #{inspect(self())}")
+
+    {:ok, pid} =
+      SessionHolderHelper.start_session_holder(
+        role,
+        channel_config,
+        reestablish,
+        initiator_keypair,
+        fn -> keypair_responder() end,
+        SessionHolderHelper.connection_callback(self(), "yellow")
+      )
+
     {:ok, %__MODULE__{pid_session_holder: pid, pid_backend_manager: pid_manager}}
   end
 
-  #TODO once we know the channel_id this process should register itself somewhere.
+  # TODO once we know the channel_id this process should register itself somewhere.
   def handle_cast({:connection_update, {_status, _reason} = update}, state) do
-    Logger.info("Connection update in backend, #{inspect update}")
+    Logger.info("Connection update in backend, #{inspect(update)}")
     {:noreply, state}
   end
 

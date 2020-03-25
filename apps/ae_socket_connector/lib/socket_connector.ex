@@ -4,7 +4,17 @@ defmodule SocketConnector do
 
   @socket_ping_intervall 50
 
-  @persist_keys [:pub_key, :role, :session, :fsm_id, :channel_id, :round_and_updates, :pending_round_and_update, :ws_base, :network_id]
+  @persist_keys [
+    :pub_key,
+    :role,
+    :session,
+    :fsm_id,
+    :channel_id,
+    :round_and_updates,
+    :pending_round_and_update,
+    :ws_base,
+    :network_id
+  ]
 
   defstruct pub_key: nil,
             role: nil,
@@ -112,7 +122,7 @@ defmodule SocketConnector do
           round_and_updates: round_and_updates,
           ws_base: ws_base,
           pending_round_and_update: pending_round_and_update,
-          fsm_id: fsm_id,
+          fsm_id: fsm_id
         } = state_channel_context,
         port,
         connection_callbacks,
@@ -410,10 +420,20 @@ defmodule SocketConnector do
     {:ok, map} = :aeso_compiler.file(contract_file, [{:backend, backend}])
     encoded_bytecode = :aeser_api_encoder.encode(:contract_bytearray, :aect_sophia.serialize(map, 3))
 
-    {:ok, call_data} = :aeso_compiler.create_calldata(to_charlist(File.read!(contract_file)), 'init', [], [{:backend, backend}])
+    {:ok, call_data} =
+      :aeso_compiler.create_calldata(to_charlist(File.read!(contract_file)), 'init', [], [{:backend, backend}])
 
     encoded_calldata = :aeser_api_encoder.encode(:contract_bytearray, call_data)
-    request = new_contract_req(%{code: encoded_bytecode, call_data: encoded_calldata, deposit: amount, abi_version: config.abi_version, vm_version: config.vm_version})
+
+    request =
+      new_contract_req(%{
+        code: encoded_bytecode,
+        call_data: encoded_calldata,
+        deposit: amount,
+        abi_version: config.abi_version,
+        vm_version: config.vm_version
+      })
+
     Logger.info("=> new contract #{inspect(request)}", state.color)
 
     {:reply, {:text, Poison.encode!(request)}, %__MODULE__{state | pending_id: Map.get(request, :id, nil)}}
@@ -483,7 +503,10 @@ defmodule SocketConnector do
   # TODO should we expose round to the client, or some helper to get all contracts back.
   # example [int, string]: :aeso_compiler.create_calldata(to_charlist(File.read!(contract_file)), 'main', ['2', '\"foobar\"']
   def handle_cast({:call_contract, {pub_key, contract_file, config} = contract, fun, args, amount}, state) do
-    {:ok, call_data} = :aeso_compiler.create_calldata(to_charlist(File.read!(contract_file)), fun, args, [{:backend, config.backend}])
+    {:ok, call_data} =
+      :aeso_compiler.create_calldata(to_charlist(File.read!(contract_file)), fun, args, [
+        {:backend, config.backend}
+      ])
 
     contract_list = calculate_contract_address(contract, state.round_and_updates)
 
@@ -788,7 +811,7 @@ defmodule SocketConnector do
   end
 
   def sync_state(state) do
-    sync_state = Enum.reduce(@persist_keys, %{}, fn(key, acc) -> Map.put(acc, key, Map.get(state, key)) end)
+    sync_state = Enum.reduce(@persist_keys, %{}, fn key, acc -> Map.put(acc, key, Map.get(state, key)) end)
     GenServer.cast(state.ws_manager_pid, {:state_tx_update, sync_state})
   end
 
@@ -943,7 +966,8 @@ defmodule SocketConnector do
         to_charlist(File.read!(contract_file)),
         fun,
         :ok,
-        deserialized_return, [{:backend, config.backend}]
+        deserialized_return,
+        [{:backend, config.backend}]
       )
 
     # human_readable = :aeb_heap.from_binary(:aeso_compiler.sophia_type_to_typerep('string'), deserialized_return)
@@ -1079,6 +1103,7 @@ defmodule SocketConnector do
     case state.connection_callbacks do
       nil ->
         :ok
+
       _ ->
         callback = Map.get(state.connection_callbacks, :connection_update)
         callback.(action, reason)
@@ -1137,7 +1162,6 @@ defmodule SocketConnector do
     end
   end
 
-
   # %{"jsonrpc" => "2.0", "method" => "channels.info", "params" => %{"channel_id" => nil, "data" => %{"event" => "fsm_up", "fsm_id" => "ba_fVV9rUl9X6OG/fzAbSsxIjQCqwaPlgxNCgJWIF3cIvOqliqv"}}, "version" => 1}
 
   def process_message(
@@ -1146,10 +1170,9 @@ defmodule SocketConnector do
           "params" => %{"channel_id" => _channel_id, "data" => %{"event" => "fsm_up" = event, "fsm_id" => fsm_id}}
         } = _message,
         %__MODULE__{channel_id: _current_channel_id} = state
-      )
-      do
-      # TODO https://github.com/aeternity/aeternity/issues/3027
-      # when channel_id == current_channel_id or is_first_update(current_channel_id, channel_id) do
+      ) do
+    # TODO https://github.com/aeternity/aeternity/issues/3027
+    # when channel_id == current_channel_id or is_first_update(current_channel_id, channel_id) do
     produce_callback(:channels_info, state, 0, event)
     # manual sync, this is particullary intersting, this is needed for future reconnects
 

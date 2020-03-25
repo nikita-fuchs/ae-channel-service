@@ -21,8 +21,6 @@ defmodule BackendServiceManager do
     GenServer.call(__MODULE__, {:start_channel, params})
   end
 
-
-
   # Server
   def init({}) do
     {:ok, %__MODULE__{}}
@@ -32,19 +30,21 @@ defmodule BackendServiceManager do
     case reestablish do
       {"", 0} ->
         false
-      _ -> true
+
+      _ ->
+        true
     end
   end
 
   defp start_channel_local(
-        {
-          role,
-          _config,
-          {channel_id, reestablish_port} = reestablish,
-          _keypair_initiator
-        } = params
-      )
-      when role in [:initiator, :responder] do
+         {
+           role,
+           _config,
+           {channel_id, reestablish_port} = reestablish,
+           _keypair_initiator
+         } = params
+       )
+       when role in [:initiator, :responder] do
     if is_reestablish(reestablish) do
       # only superview reestablished sessions, no way to relocate a fsm without channel_id and fsm_id
       Supervisor.start_child(ChannelSupervisor.Supervisor, [{params, self()}])

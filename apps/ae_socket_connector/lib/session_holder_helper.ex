@@ -1,12 +1,23 @@
 defmodule SessionHolderHelper do
-
   defmacro ae_url, do: Application.get_env(:ae_socket_connector, :node)[:ae_url]
   defmacro network_id, do: Application.get_env(:ae_socket_connector, :node)[:network_id]
 
-  def connection_callback(callback_pid, color, logfun \\ &(&1)) do
+  def connection_callback(callback_pid, color, logfun \\ & &1) do
     %SocketConnector.ConnectionCallbacks{
       sign_approve: fn round_initiator, round, auto_approval, method, to_sign, human ->
-        logfun.({:sign_approve, %{round_initator: round_initiator, round: round, auto_approval: auto_approval, method: method, to_sign: to_sign, human: human, color: color}})
+        logfun.(
+          {:sign_approve,
+           %{
+             round_initator: round_initiator,
+             round: round,
+             auto_approval: auto_approval,
+             method: method,
+             to_sign: to_sign,
+             human: human,
+             color: color
+           }}
+        )
+
         GenServer.cast(callback_pid, {:match_jobs, {:sign_approve, round, method}, to_sign})
         auto_approval
       end,
@@ -15,7 +26,10 @@ defmodule SessionHolderHelper do
         GenServer.cast(callback_pid, {:match_jobs, {:channels_info, round, round_initiator, method}, nil})
       end,
       channels_update: fn round_initiator, round, method ->
-        logfun.({:channels_update, %{round_initiator: round_initiator, round: round, method: method, color: color}})
+        logfun.(
+          {:channels_update, %{round_initiator: round_initiator, round: round, method: method, color: color}}
+        )
+
         GenServer.cast(callback_pid, {:match_jobs, {:channels_update, round, round_initiator, method}, nil})
       end,
       on_chain: fn round_initiator, round, method ->
@@ -70,7 +84,11 @@ defmodule SessionHolderHelper do
   def custom_config(overide_basic_param, override_custom) do
     fn initator_pub, responder_pub ->
       %{
-        basic_configuration: struct(SessionHolderHelper.default_configuration(initator_pub, responder_pub).basic_configuration, overide_basic_param),
+        basic_configuration:
+          struct(
+            SessionHolderHelper.default_configuration(initator_pub, responder_pub).basic_configuration,
+            overide_basic_param
+          ),
         custom_param_fun: fn role, host_url ->
           Map.merge(SessionHolderHelper.custom_connection_setting(role, host_url), override_custom)
         end
@@ -78,8 +96,15 @@ defmodule SessionHolderHelper do
     end
   end
 
-  def start_session_holder(role, config, {_channel_id, _reestablish_port} = reestablish, keypair_initiator, keypair_responder, connection_callback_handler) when role in [:initiator, :responder] do
-
+  def start_session_holder(
+        role,
+        config,
+        {_channel_id, _reestablish_port} = reestablish,
+        keypair_initiator,
+        keypair_responder,
+        connection_callback_handler
+      )
+      when role in [:initiator, :responder] do
     {pub_key, priv_key} =
       case role do
         :initiator -> keypair_initiator.()
@@ -96,24 +121,27 @@ defmodule SessionHolderHelper do
       end
 
     connect_map = %{
-        socket_connector: %{
-          pub_key: pub_key,
-          session: config.(initiator_pub_key, responder_pub_key),
-          role: role
-        },
-        log_config: %{file: Atom.to_string(role) <> "_" <> pub_key},
-        ae_url: ae_url(),
-        network_id: network_id(),
-        priv_key: priv_key,
-        connection_callbacks: connection_callback_handler,
-        color: color
-      }
-    case (reestablish) do
+      socket_connector: %{
+        pub_key: pub_key,
+        session: config.(initiator_pub_key, responder_pub_key),
+        role: role
+      },
+      log_config: %{file: Atom.to_string(role) <> "_" <> pub_key},
+      ae_url: ae_url(),
+      network_id: network_id(),
+      priv_key: priv_key,
+      connection_callbacks: connection_callback_handler,
+      color: color
+    }
+
+    case reestablish do
       {"", _reestablish_port} ->
         SessionHolder.start_link(connect_map)
+
       {channel_id, reestablish_port} ->
-        SessionHolder.start_link(Map.merge(connect_map, %{reestablish: %{channel_id: channel_id, port: reestablish_port}}))
+        SessionHolder.start_link(
+          Map.merge(connect_map, %{reestablish: %{channel_id: channel_id, port: reestablish_port}})
+        )
     end
   end
-
 end
